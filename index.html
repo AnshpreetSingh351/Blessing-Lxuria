@@ -114,18 +114,35 @@ function go(idx){
   },180);
 }
 
-var wA=0,wT=null;
+/* ── ONE-SECTION-PER-GESTURE SCROLL ──
+   A cooldown lock fires on the very first wheel tick,
+   then blocks all input for COOLDOWN ms — no accumulation,
+   no skipping, no matter how fast or slow the user scrolls. */
+var COOLDOWN=900,scrollLocked=false;
+function unlockScroll(){scrollLocked=false;}
+
 window.addEventListener('wheel',function(e){
-  e.preventDefault();wA+=e.deltaY;clearTimeout(wT);
-  wT=setTimeout(function(){if(Math.abs(wA)>18)go(wA>0?cur+1:cur-1);wA=0;},48);
+  e.preventDefault();
+  if(scrollLocked)return;
+  scrollLocked=true;
+  go(e.deltaY>0?cur+1:cur-1);
+  setTimeout(unlockScroll,COOLDOWN);
 },{passive:false});
 
-var tY=0,tM=false;
-window.addEventListener('touchstart',function(e){tY=e.touches[0].clientY;tM=false;},{passive:true});
-window.addEventListener('touchmove',function(){tM=true;},{passive:true});
+/* Touch: same principle — capture direction on touchstart,
+   fire on touchend only if swipe distance ≥ threshold,
+   then lock for COOLDOWN ms. */
+var tY=0,tLocked=false;
+window.addEventListener('touchstart',function(e){
+  tY=e.touches[0].clientY;
+},{passive:true});
 window.addEventListener('touchend',function(e){
-  if(!tM)return;var dy=tY-e.changedTouches[0].clientY;
-  if(Math.abs(dy)>38)go(dy>0?cur+1:cur-1);
+  if(tLocked)return;
+  var dy=tY-e.changedTouches[0].clientY;
+  if(Math.abs(dy)<40)return;   /* ignore taps / tiny drags */
+  tLocked=true;
+  go(dy>0?cur+1:cur-1);
+  setTimeout(function(){tLocked=false;},COOLDOWN);
 },{passive:true});
 window.addEventListener('keydown',function(e){
   if(e.key==='ArrowDown'||e.key===' ')go(cur+1);
